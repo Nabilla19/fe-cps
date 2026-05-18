@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   ShieldCheck, Users, MessageSquare, Trash2, Loader2, RefreshCw,
-  TrendingUp, BarChart2, Activity, UserPlus
+  TrendingUp, BarChart2, Activity, UserPlus, Edit2, Plus, X
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
@@ -35,6 +35,9 @@ export default function AdminDashboard() {
   const [users, setUsers]       = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', role: 'user' });
   const API_URL = 'http://localhost:5000/api';
 
   useEffect(() => {
@@ -77,6 +80,55 @@ export default function AdminDashboard() {
       if (res.ok) fetchData();
       else { const e = await res.json(); alert(`Gagal: ${e.error}`); }
     } catch (e) { console.error(e); }
+  };
+
+  const handleSaveUser = async (e) => {
+    e.preventDefault();
+    try {
+      if (editUser) {
+        // Edit Role
+        const res = await fetch(`${API_URL}/admin/users/${editUser.id}/role`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ role: userForm.role })
+        });
+        if (res.ok) {
+          setShowUserModal(false);
+          fetchData();
+        } else {
+          const err = await res.json();
+          alert(`Gagal edit role: ${err.error}`);
+        }
+      } else {
+        // Add User
+        const res = await fetch(`${API_URL}/admin/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(userForm)
+        });
+        if (res.ok) {
+          setShowUserModal(false);
+          fetchData();
+        } else {
+          const err = await res.json();
+          alert(`Gagal tambah user: ${err.error}`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openAddUser = () => {
+    setEditUser(null);
+    setUserForm({ username: '', email: '', password: '', role: 'user' });
+    setShowUserModal(true);
+  };
+
+  const openEditUser = (u) => {
+    setEditUser(u);
+    setUserForm({ username: u.username, email: u.email || '', password: '', role: u.role });
+    setShowUserModal(true);
   };
 
   if (!user || user.role !== 'admin') return <Navigate to="/" />;
@@ -251,7 +303,12 @@ export default function AdminDashboard() {
 
       {/* User Management Table */}
       <div className="glass-card p-6">
-        <h2 className="text-xl font-bold mb-4">Manajemen Pengguna</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Manajemen Pengguna</h2>
+          <button onClick={openAddUser} className="btn-primary px-3 py-1.5 text-sm rounded-lg flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Tambah Pengguna
+          </button>
+        </div>
         {isLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-rose-400" /></div>
         ) : users.length === 0 ? (
@@ -274,18 +331,27 @@ export default function AdminDashboard() {
                     <td className="py-3 px-2 text-sm">{u.id}</td>
                     <td className="py-3 px-2 text-sm font-medium">@{u.username}</td>
                     <td className="py-3 px-2 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                      <span className={`px-2 py-1 rounded text-xs font-bold 
+                        ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-500' : 
+                          'bg-emerald-500/10 text-emerald-500'}`}>
                         {u.role.toUpperCase()}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-xs" style={{ color: 'var(--t-secondary)' }}>
                       {new Date(u.created_at).toLocaleDateString('id-ID')}
                     </td>
-                    <td className="py-3 px-2 text-center">
+                    <td className="py-3 px-2 text-center flex items-center justify-center gap-2">
+                      <button onClick={() => openEditUser(u)}
+                        className="text-blue-500 hover:bg-blue-500/10 p-1.5 rounded-lg transition-colors"
+                        disabled={u.role === 'admin' && u.id === user.id}
+                        title="Edit Role">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
                       <button onClick={() => handleDeleteUser(u.id, u.username)}
                         className="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"
                         disabled={u.role === 'admin'}
-                        style={{ opacity: u.role === 'admin' ? 0.3 : 1, cursor: u.role === 'admin' ? 'not-allowed' : 'pointer' }}>
+                        style={{ opacity: u.role === 'admin' ? 0.3 : 1, cursor: u.role === 'admin' ? 'not-allowed' : 'pointer' }}
+                        title="Hapus Pengguna">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -324,6 +390,62 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* User Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card p-6 w-full max-w-md mx-4 relative">
+            <button onClick={() => setShowUserModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-rose-500 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold mb-4">{editUser ? 'Edit Role Pengguna' : 'Tambah Pengguna Baru'}</h2>
+            
+            <form onSubmit={handleSaveUser} className="space-y-4">
+              {!editUser && (
+                <>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Username</label>
+                    <input type="text" required
+                      value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})}
+                      className="input-field w-full" placeholder="username" />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Email (Opsional)</label>
+                    <input type="email"
+                      value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})}
+                      className="input-field w-full" placeholder="email@contoh.com" />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Password</label>
+                    <input type="password" required
+                      value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})}
+                      className="input-field w-full" placeholder="••••••••" />
+                  </div>
+                </>
+              )}
+              
+              {editUser && (
+                <div className="mb-4">
+                  <p className="text-sm" style={{ color: 'var(--t-secondary)' }}>Mengedit role untuk: <strong style={{ color: 'var(--t-primary)' }}>@{editUser.username}</strong></p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Role</label>
+                <select value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})} className="input-field w-full cursor-pointer">
+                  <option value="user">User Biasa</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowUserModal(false)} className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors" style={{ color: 'var(--t-secondary)', backgroundColor: 'var(--bg-subtle)' }}>Batal</button>
+                <button type="submit" className="btn-primary px-4 py-2 rounded-xl text-sm font-semibold">{editUser ? 'Simpan Perubahan' : 'Tambah Pengguna'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

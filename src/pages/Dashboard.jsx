@@ -175,7 +175,8 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'rgba(99,102,241,0.15)' }}>
               <Moon className="w-4 h-4 text-indigo-400"/>
             </div>
-            <h3 className="font-semibold text-sm" style={T.primary}>Berapa lama kamu tidur?</h3>
+            <h3 className="font-semibold text-sm flex-1" style={T.primary}>Berapa lama kamu tidur?</h3>
+            {selectedSleep && <span className="text-xs text-indigo-500 font-bold animate-fade-in">✓ Tersimpan</span>}
           </div>
           <div className="space-y-2">
             {['Kurang dari 5 jam','5–7 jam','Lebih dari 8 jam'].map(opt => (
@@ -194,7 +195,8 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'rgba(236,72,153,0.15)' }}>
               <Target className="w-4 h-4 text-pink-400"/>
             </div>
-            <h3 className="font-semibold text-sm" style={T.primary}>Fokus utama hari ini?</h3>
+            <h3 className="font-semibold text-sm flex-1" style={T.primary}>Fokus utama hari ini?</h3>
+            {selectedBurden && <span className="text-xs text-pink-500 font-bold animate-fade-in">✓ Tersimpan</span>}
           </div>
           <div className="flex flex-wrap gap-2">
             {['Pekerjaan','Tugas Kuliah','Keluarga','Kesehatan','Keuangan','Healing'].map(opt => (
