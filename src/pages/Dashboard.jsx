@@ -183,8 +183,19 @@ export default function Dashboard() {
   };
 
   const h = new Date().getHours();
-  const greeting = h<12 ? 'Selamat pagi' : h<17 ? 'Selamat siang' : 'Selamat malam';
-  const greetEmoji = h<12 ? '☀️' : h<17 ? '🌤️' : '🌙';
+  let greeting = 'Selamat malam';
+  let greetEmoji = '🌙';
+
+  if (h >= 4 && h < 11) {
+    greeting = 'Selamat pagi';
+    greetEmoji = '☀️';
+  } else if (h >= 11 && h < 15) {
+    greeting = 'Selamat siang';
+    greetEmoji = '🌤️';
+  } else if (h >= 15 && h < 19) {
+    greeting = 'Selamat sore';
+    greetEmoji = '⛅';
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-8">
@@ -248,9 +259,6 @@ export default function Dashboard() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link to="/chat" className="btn-primary flex justify-center items-center gap-2 py-3 px-6 text-sm rounded-xl">
                   Curhat ke AI <ArrowRight className="w-4 h-4"/>
-                </Link>
-                <Link to="/konsultasi" className="btn-ghost flex justify-center items-center gap-2 py-3 px-6 text-sm rounded-xl">
-                  Cari Profesional
                 </Link>
               </div>
             )}

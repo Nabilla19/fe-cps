@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   ShieldCheck, Users, MessageSquare, Trash2, Loader2, RefreshCw,
   TrendingUp, BarChart2, Activity, UserPlus, Edit2, Plus, X
@@ -30,6 +31,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function AdminDashboard() {
   const { token, user } = useAuth();
+  const { theme } = useTheme();
   const [stats, setStats]       = useState({ users: 0, posts: 0 });
   const [posts, setPosts]       = useState([]);
   const [users, setUsers]       = useState([]);
@@ -40,8 +42,11 @@ export default function AdminDashboard() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [editUser, setEditUser] = useState(null);
+  const [editChannel, setEditChannel] = useState(null);
   const [userForm, setUserForm] = useState({ username: '', email: '', password: '', role: 'user' });
   const [channelForm, setChannelForm] = useState({ name: '', slug: '', description: '' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchDate, setSearchDate] = useState('');
   const API_URL = 'http://localhost:5000/api';
 
   useEffect(() => {
@@ -103,24 +108,45 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCreateChannel = async (e) => {
+  const handleSaveChannel = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_URL}/admin/channels`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(channelForm)
-      });
-      if (res.ok) {
-        setShowChannelModal(false);
-        setChannelForm({ name: '', slug: '', description: '' });
-        fetchData();
+      const headers = { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      };
+      if (editChannel) {
+        // Edit Channel PUT
+        const res = await fetch(`${API_URL}/admin/channels/${editChannel.slug}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ name: channelForm.name, description: channelForm.description })
+        });
+        if (res.ok) {
+          setShowChannelModal(false);
+          setChannelForm({ name: '', slug: '', description: '' });
+          fetchData();
+          alert('Saluran obrolan berhasil diperbarui!');
+        } else {
+          const err = await res.json();
+          alert(`Gagal memperbarui saluran: ${err.error}`);
+        }
       } else {
-        const err = await res.json();
-        alert(`Gagal membuat saluran: ${err.error}`);
+        // Create Channel POST
+        const res = await fetch(`${API_URL}/admin/channels`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(channelForm)
+        });
+        if (res.ok) {
+          setShowChannelModal(false);
+          setChannelForm({ name: '', slug: '', description: '' });
+          fetchData();
+          alert('Saluran obrolan baru berhasil ditambahkan!');
+        } else {
+          const err = await res.json();
+          alert(`Gagal membuat saluran: ${err.error}`);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -128,10 +154,6 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteChannel = async (slug) => {
-    if (slug === 'curhat-umum') {
-      alert('Saluran umum bawaan tidak dapat dihapus!');
-      return;
-    }
     if (!window.confirm(`Yakin ingin menghapus saluran #${slug}? Seluruh postingan dalam saluran ini juga akan terhapus!`)) return;
     try {
       const res = await fetch(`${API_URL}/admin/channels/${slug}`, {
@@ -149,6 +171,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const openAddChannel = () => {
+    setEditChannel(null);
+    setChannelForm({ name: '', slug: '', description: '' });
+    setShowChannelModal(true);
+  };
+
+  const openEditChannel = (chan) => {
+    setEditChannel(chan);
+    setChannelForm({ name: chan.name, slug: chan.slug, description: chan.description || '' });
+    setShowChannelModal(true);
+  };
+
   const handleSelectPost = (id) => {
     if (selectedPosts.includes(id)) {
       setSelectedPosts(prev => prev.filter(x => x !== id));
@@ -157,11 +191,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const filteredPosts = posts.filter(post => {
+    // 1. Search Query matches content, username, or channel slug
+    const matchesSearch = searchQuery.trim() === '' || 
+      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (post.channel_slug || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    // 2. Date matches
+    const postDateOnly = post.created_at ? post.created_at.substring(0, 10) : '';
+    const matchesDate = searchDate === '' || postDateOnly === searchDate;
+
+    return matchesSearch && matchesDate;
+  });
+
   const handleSelectAllPosts = () => {
-    if (selectedPosts.length === posts.length) {
-      setSelectedPosts([]);
+    const filteredIds = filteredPosts.map(p => p.id);
+    const allFilteredSelected = filteredIds.every(id => selectedPosts.includes(id));
+    
+    if (allFilteredSelected) {
+      // Unselect all filtered ids
+      setSelectedPosts(prev => prev.filter(id => !filteredIds.includes(id)));
     } else {
-      setSelectedPosts(posts.map(p => p.id));
+      // Select all filtered ids
+      setSelectedPosts(prev => [...new Set([...prev, ...filteredIds])]);
     }
   };
 
@@ -244,6 +297,9 @@ export default function AdminDashboard() {
   const moodTrend  = (analytics?.moodTrend  || []).map(r => ({ ...r, date: formatDate(r.date), happy: +r.happy, neutral: +r.neutral, sad: +r.sad }));
   const postsChart = (analytics?.postsPerDay || []).map(r => ({ date: formatDate(r.date), Postingan: +r.count }));
   const userChart  = (analytics?.userGrowth  || []).map(r => ({ date: formatDate(r.date), Pengguna: +r.count }));
+  const newestUsers = [...users]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 5);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in pb-12">
@@ -345,52 +401,49 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* Bar Chart - Posts per day */}
+      {/* Pengguna Terbaru */}
+      <div className="w-full">
         <div className="glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="w-5 h-5 text-blue-400" />
-            <h2 className="font-bold text-sm">Aktivitas Postingan (7 Hari)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-emerald-400" />
+              <h2 className="font-bold text-sm">Pengguna Terbaru</h2>
+            </div>
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+              5 Terbaru
+            </span>
           </div>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-rose-400" /></div>
-          ) : postsChart.length === 0 ? (
-            <p className="text-center py-8 text-xs" style={{ color: 'var(--t-muted)' }}>Belum ada postingan 7 hari terakhir.</p>
+          ) : newestUsers.length === 0 ? (
+            <p className="text-center py-8 text-xs" style={{ color: 'var(--t-muted)' }}>Belum ada pengguna terdaftar.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={postsChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--t-muted)' }} allowDecimals={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Postingan" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Bar Chart - User Growth */}
-        <div className="glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <UserPlus className="w-5 h-5 text-rose-400" />
-            <h2 className="font-bold text-sm">Pertumbuhan Pengguna (7 Hari)</h2>
-          </div>
-          {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-rose-400" /></div>
-          ) : userChart.length === 0 ? (
-            <p className="text-center py-8 text-xs" style={{ color: 'var(--t-muted)' }}>Belum ada pendaftar 7 hari terakhir.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={userChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--t-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--t-muted)' }} allowDecimals={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="Pengguna" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="divide-y divide-[var(--border)]">
+              {newestUsers.map((u, i) => (
+                <div key={u.id || i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-inner select-none"
+                         style={{ 
+                           background: `hsla(${(u.username.charCodeAt(0) || 0) * 45 % 360}, 55%, 62%, 0.15)`,
+                           color: `hsl(${(u.username.charCodeAt(0) || 0) * 45 % 360}, 55%, 62%)`,
+                           border: `1px solid hsla(${(u.username.charCodeAt(0) || 0) * 45 % 360}, 55%, 62%, 0.3)`
+                         }}>
+                      {u.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">@{u.username}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--t-secondary)' }}>
+                        {new Date(u.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                    ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    {u.role}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -462,9 +515,9 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-xl font-bold">Manajemen Saluran Obrolan</h2>
-            <p className="text-xs text-[var(--t-muted)] font-medium">Buat atau hapus saluran obrolan Ruang Aman secara dinamis.</p>
+            <p className="text-xs text-[var(--t-muted)] font-medium">Buat, edit, atau hapus saluran obrolan Ruang Aman secara dinamis.</p>
           </div>
-          <button onClick={() => setShowChannelModal(true)} className="btn-primary px-3 py-1.5 text-sm rounded-lg flex items-center gap-2">
+          <button onClick={openAddChannel} className="btn-primary px-3 py-1.5 text-sm rounded-lg flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Saluran
           </button>
         </div>
@@ -491,12 +544,15 @@ export default function AdminDashboard() {
                     <td className="py-3 px-2 text-xs" style={{ color: 'var(--t-secondary)' }}>
                       {chan.description || 'Tidak ada deskripsi'}
                     </td>
-                    <td className="py-3 px-2 text-center flex items-center justify-center">
+                    <td className="py-3 px-2 text-center flex items-center justify-center gap-2">
+                      <button onClick={() => openEditChannel(chan)}
+                        className="text-blue-500 hover:bg-blue-500/10 p-1.5 rounded-lg transition-colors"
+                        title="Edit Saluran">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
                       <button onClick={() => handleDeleteChannel(chan.slug)}
                         className="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"
-                        disabled={chan.slug === 'curhat-umum'}
-                        style={{ opacity: chan.slug === 'curhat-umum' ? 0.3 : 1, cursor: chan.slug === 'curhat-umum' ? 'not-allowed' : 'pointer' }}
-                        title={chan.slug === 'curhat-umum' ? "Saluran utama tidak bisa dihapus" : "Hapus Saluran"}>
+                        title="Hapus Saluran">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -517,12 +573,12 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center gap-3">
-            {posts.length > 0 && (
+            {filteredPosts.length > 0 && (
               <button
                 onClick={handleSelectAllPosts}
                 className="btn-ghost border border-[var(--border)] px-3 py-1.5 text-xs rounded-lg font-semibold"
               >
-                {selectedPosts.length === posts.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
+                {filteredPosts.every(p => selectedPosts.includes(p.id)) ? 'Batal Pilih' : 'Pilih Semua'}
               </button>
             )}
             
@@ -537,13 +593,37 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Real-time Search & Date Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 p-4 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] animate-fade-in">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--t-secondary)' }}>Cari Kata Kunci / @username / #saluran</label>
+            <input 
+              type="text" 
+              value={searchQuery} 
+              onChange={e => setSearchQuery(e.target.value)} 
+              placeholder="Ketik kata kunci pencarian..." 
+              className="input-field py-2 text-xs rounded-xl"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--t-secondary)' }}>Filter Berdasarkan Tanggal</label>
+            <input 
+              type="date" 
+              value={searchDate} 
+              onChange={e => setSearchDate(e.target.value)} 
+              className="input-field py-2 text-xs rounded-xl cursor-pointer"
+              style={{ colorScheme: theme === 'dark' ? 'dark' : 'light' }}
+            />
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-rose-400" /></div>
-        ) : posts.length === 0 ? (
-          <p className="text-center py-10 text-sm" style={{ color: 'var(--t-muted)' }}>Belum ada postingan di komunitas.</p>
+        ) : filteredPosts.length === 0 ? (
+          <p className="text-center py-10 text-sm" style={{ color: 'var(--t-muted)' }}>Tidak ada postingan yang cocok dengan filter pencarian.</p>
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-            {posts.map(post => {
+            {filteredPosts.map(post => {
               const isChecked = selectedPosts.includes(post.id);
               return (
                 <div key={post.id} 
@@ -642,25 +722,29 @@ export default function AdminDashboard() {
             <button onClick={() => setShowChannelModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-rose-500 transition-colors">
               <X className="w-5 h-5" />
             </button>
-            <h2 className="text-xl font-bold mb-4">Buat Saluran Obrolan Baru</h2>
+            <h2 className="text-xl font-bold mb-4">{editChannel ? 'Edit Saluran Obrolan' : 'Buat Saluran Obrolan Baru'}</h2>
             
-            <form onSubmit={handleCreateChannel} className="space-y-4">
+            <form onSubmit={handleSaveChannel} className="space-y-4">
               <div>
                 <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Nama Saluran</label>
                 <input type="text" required
                   value={channelForm.name} onChange={e => {
                     const val = e.target.value;
-                    const autoSlug = val.toLowerCase().trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-');
-                    setChannelForm({...channelForm, name: val, slug: autoSlug});
+                    if (!editChannel) {
+                      const autoSlug = val.toLowerCase().trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-');
+                      setChannelForm({...channelForm, name: val, slug: autoSlug});
+                    } else {
+                      setChannelForm({...channelForm, name: val});
+                    }
                   }}
                   className="input-field w-full" placeholder="Contoh: 💬-curhat-kerjaan atau #healing-tips" />
               </div>
 
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Slug Saluran (Otomatis/Manual)</label>
-                <input type="text" required
+                <label className="block text-sm mb-1" style={{ color: 'var(--t-secondary)' }}>Slug Saluran</label>
+                <input type="text" required disabled={!!editChannel}
                   value={channelForm.slug} onChange={e => setChannelForm({...channelForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-')})}
-                  className="input-field w-full font-mono text-xs" placeholder="curhat-kerjaan" />
+                  className="input-field w-full font-mono text-xs disabled:opacity-50 disabled:cursor-not-allowed" placeholder="curhat-kerjaan" />
               </div>
 
               <div>
@@ -672,7 +756,7 @@ export default function AdminDashboard() {
 
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowChannelModal(false)} className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors" style={{ color: 'var(--t-secondary)', backgroundColor: 'var(--bg-subtle)' }}>Batal</button>
-                <button type="submit" className="btn-primary px-4 py-2 rounded-xl text-sm font-semibold">Buat Saluran</button>
+                <button type="submit" className="btn-primary px-4 py-2 rounded-xl text-sm font-semibold">{editChannel ? 'Simpan Perubahan' : 'Buat Saluran'}</button>
               </div>
             </form>
           </div>

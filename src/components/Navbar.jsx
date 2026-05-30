@@ -10,14 +10,13 @@ export default function Navbar() {
   const { token, user, openLogin, openRegister, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const navLinks = [
-    { name: 'Dashboard',      path: '/',           icon: <LayoutDashboard className="w-4 h-4" /> },
-    { name: 'Safe Space',     path: '/komunitas',  icon: <Users className="w-4 h-4" /> },
-    { name: 'AI Chat',        path: '/chat',       icon: <MessageCircle className="w-4 h-4" /> },
-  ];
+  const navLinks = [];
 
   if (token) {
-    navLinks.push({ name: 'Settings', path: '/settings', icon: <Settings className="w-4 h-4" /> });
+    navLinks.push({ name: 'Dashboard',      path: '/',           icon: <LayoutDashboard className="w-4 h-4" /> });
+    navLinks.push({ name: 'Safe Space',     path: '/komunitas',  icon: <Users className="w-4 h-4" /> });
+    navLinks.push({ name: 'AI Chat',        path: '/chat',       icon: <MessageCircle className="w-4 h-4" /> });
+    navLinks.push({ name: 'Settings',       path: '/settings',   icon: <Settings className="w-4 h-4" /> });
   }
 
   if (user && user.role === 'admin') {

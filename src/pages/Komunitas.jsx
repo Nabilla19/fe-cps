@@ -4,6 +4,7 @@ import {
   Mic, Headphones, Hash, Compass, Users, CornerUpLeft
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Komunitas() {
   const [showError, setShowError] = useState(false);
@@ -11,6 +12,7 @@ export default function Komunitas() {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const { token, openLogin, openRegister, logout, user } = useAuth();
+  const { theme } = useTheme();
   const [newPostContent, setNewPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -119,9 +121,16 @@ export default function Komunitas() {
     });
   };
 
-  const hues = [180, 210, 260, 310, 340, 30, 60, 120];
-  const uColor = (n = '') => `hsl(${hues[(n.charCodeAt(0) || 0) % hues.length]}, 55%, 62%)`;
-  const uBg = (n = '') => `hsla(${hues[(n.charCodeAt(0) || 0) % hues.length]}, 55%, 62%, 0.13)`;
+  const hues = [180, 210, 260, 310, 340, 30, 160, 280];
+  const isLight = theme === 'light';
+  const uColor = (n = '') => {
+    const hue = hues[(n.charCodeAt(0) || 0) % hues.length];
+    return `hsl(${hue}, ${isLight ? '65%, 38%' : '55%, 62%'})`;
+  };
+  const uBg = (n = '') => {
+    const hue = hues[(n.charCodeAt(0) || 0) % hues.length];
+    return `hsla(${hue}, 55%, 62%, ${isLight ? '0.12' : '0.18'})`;
+  };
   const uInit = (n = '') => n.charAt(0).toUpperCase();
 
   const timeAgo = (d) => {
@@ -163,12 +172,11 @@ export default function Komunitas() {
 
   const uniquePosters = posts.length > 0 
     ? [...new Set(posts.map(p => p.username))].filter(u => u !== (user ? user.username.substring(0, 3) + '***' : ''))
-    : ['kur***', 'san***', 'bag***'];
+    : [];
 
-  const mockOnlineMembers = [
-    { username: 'MindEase AI', isBot: true, status: 'online' },
+  const activeMembers = [
     ...(user ? [{ username: user.username.substring(0, 3) + '***', status: 'online', isSelf: true }] : []),
-    ...uniquePosters.slice(0, 4).map(u => ({ username: u, status: 'online' }))
+    ...uniquePosters.map(u => ({ username: u, status: 'online' }))
   ];
 
   return (
@@ -186,11 +194,6 @@ export default function Komunitas() {
           <p className="text-sm ml-12 max-w-lg hidden sm:block" style={{ color: 'var(--t-secondary)' }}>
             Komunitas anonim yang bebas dari penghakiman. Bagikan ceritamu dengan aman.
           </p>
-        </div>
-        <div className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
-             style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-ping" />
-          <span>Sistem Filtering Aktif</span>
         </div>
       </div>
 
@@ -258,19 +261,17 @@ export default function Komunitas() {
 
           {/* Discord Bottom-left User Profile Bar */}
           <div className="h-[60px] flex items-center px-3 gap-2.5 border-t border-[var(--border)]"
-               style={{ background: 'rgba(0,0,0,0.15)' }}>
+               style={{ background: 'var(--bg-surface)', boxShadow: '0 -2px 10px rgba(0,0,0,0.02)' }}>
             
             {/* User Avatar */}
             <div className="relative shrink-0">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner"
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md select-none"
                    style={{ 
-                     background: token && user ? uBg(user.username) : 'rgba(255,255,255,0.08)',
-                     color: token && user ? uColor(user.username) : 'var(--t-muted)',
-                     border: `1px solid ${token && user ? uColor(user.username) : 'var(--border)'}`
+                     background: token && user ? uColor(user.username) : 'var(--bg-subtle)'
                    }}>
                 {token && user ? uInit(user.username) : '?'}
               </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg-surface)]"
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[var(--bg-surface)]"
                    style={{ background: token ? '#10b981' : '#6b7280' }} />
             </div>
 
@@ -279,7 +280,7 @@ export default function Komunitas() {
               <p className="text-xs font-extrabold truncate text-[var(--t-primary)]">
                 {token && user ? user.username.substring(0, 3) + '***' : 'Tamu Mindease'}
               </p>
-              <p className="text-[10px] text-[var(--t-muted)] font-medium">
+              <p className="text-[10px] font-medium" style={{ color: 'var(--t-secondary)' }}>
                 {token ? 'Online' : 'Mode Baca'}
               </p>
             </div>
@@ -307,7 +308,7 @@ export default function Komunitas() {
               <div className="md:hidden flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
                    style={{ background: 'rgba(22,160,160,0.12)', color: 'var(--t-brand)' }}>
                 <Users className="w-3 h-3" />
-                <span>4</span>
+                <span>{activeMembers.length}</span>
               </div>
             </div>
           </div>
@@ -399,15 +400,15 @@ export default function Komunitas() {
                         )}
 
                         {/* User Avatar left */}
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 shadow-inner select-none transition-transform group-hover:scale-105"
-                             style={{ background: uBg(post.username), color: uColor(post.username), border: `1px solid ${uBg(post.username)}` }}>
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md select-none transition-transform group-hover:scale-105"
+                             style={{ background: uColor(post.username) }}>
                           {uInit(post.username)}
                         </div>
                         
                         {/* Message Body right */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2.5 mb-1.5">
-                            <span className="font-extrabold text-sm transition-colors group-hover:brightness-110" style={{ color: uColor(post.username) }}>
+                            <span className="font-extrabold text-sm transition-colors group-hover:opacity-85" style={{ color: uColor(post.username) }}>
                               {post.username}
                             </span>
                             <span className="text-[10px] text-[var(--t-muted)] font-medium">
@@ -500,7 +501,7 @@ export default function Komunitas() {
              style={{ background: 'rgba(0,0,0,0.1)', borderLeft: '1px solid var(--border)' }}>
           
           <div className="h-14 flex items-center px-4 border-b border-[var(--border)] shrink-0">
-            <span className="font-extrabold text-xs text-[var(--t-primary)] tracking-wide uppercase">Member Aktif — {mockOnlineMembers.length}</span>
+            <span className="font-extrabold text-xs text-[var(--t-primary)] tracking-wide uppercase">Member Aktif — {activeMembers.length}</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -508,29 +509,26 @@ export default function Komunitas() {
             <div>
               <span className="text-[10px] font-bold text-[var(--t-muted)] uppercase tracking-wider block mb-2 px-1">Online</span>
               <div className="space-y-2">
-                {mockOnlineMembers.map((memb, i) => (
-                  <div key={i} className="flex items-center gap-2 px-1 py-1 rounded-xl transition-all duration-150 hover:bg-[rgba(255,255,255,0.02)] cursor-default">
+                {activeMembers.map((memb, i) => (
+                  <div key={i} className="flex items-center gap-2 px-1.5 py-1.5 rounded-xl transition-all duration-150 hover:bg-[var(--bg-subtle)] cursor-default">
                     {/* Status dot and avatar */}
                     <div className="relative">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-inner"
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md select-none"
                            style={{ 
-                             background: uBg(memb.username), 
-                             color: uColor(memb.username), 
-                             border: `1px solid ${uBg(memb.username)}`
+                             background: uColor(memb.username)
                            }}>
-                        {memb.isBot ? '🤖' : uInit(memb.username)}
+                        {uInit(memb.username)}
                       </div>
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[var(--bg-surface)]"
+                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[var(--bg-surface)]"
                            style={{ background: memb.status === 'online' ? '#10b981' : '#f59e0b' }} />
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-xs font-bold truncate transition-colors flex items-center gap-1.5"
-                         style={{ color: memb.isBot ? 'var(--t-brand)' : 'var(--t-secondary)' }}>
-                        <span className="truncate">{memb.username}</span>
-                        {memb.isBot && (
-                          <span className="text-[9px] bg-brand-500 text-white font-extrabold px-1 rounded uppercase tracking-wider">BOT</span>
-                        )}
+                      <p className="text-xs font-bold truncate text-[var(--t-primary)]">
+                        {memb.username}
+                      </p>
+                      <p className="text-[9px] font-medium" style={{ color: 'var(--t-secondary)' }}>
+                        Online
                       </p>
                     </div>
                   </div>

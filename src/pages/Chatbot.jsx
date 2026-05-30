@@ -9,7 +9,7 @@ const SUGGESTIONS = [
 ];
 
 export default function Chatbot() {
-  const { token } = useAuth();
+  const { token, openLogin, openRegister } = useAuth();
   const [messages, setMessages] = useState([
     { id: 1, sender: 'ai', text: 'Halo! Saya AI MindEase. Ada yang ingin kamu ceritakan hari ini? Jangan ragu untuk berbagi.' }
   ]);
@@ -353,6 +353,38 @@ export default function Chatbot() {
 
   const pinnedSessions = sessions.filter(s => s.is_pinned);
   const recentSessions = sessions.filter(s => !s.is_pinned);
+
+  if (!token) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 rounded-3xl border border-[var(--border)] glass-panel text-center space-y-6 animate-scale-in relative overflow-hidden">
+        {/* Glow effect */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-30"
+             style={{ background: 'var(--bg-brand)' }} />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-30"
+             style={{ background: 'var(--bg-brand)' }} />
+
+        <div className="w-20 h-20 mx-auto bg-[var(--bg-brand)] rounded-3xl flex items-center justify-center transform rotate-3 shadow-lg shadow-[var(--bg-brand)]/20">
+          <Bot className="w-10 h-10 text-white" />
+        </div>
+        
+        <div className="space-y-2 relative z-10">
+          <h2 className="text-2xl font-extrabold" style={{ color: 'var(--t-primary)' }}>Akses MindEase AI Chat</h2>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--t-secondary)' }}>
+            Fitur konsultasi mental dengan MindEase AI Companion memerlukan akun untuk keamanan data dan enkripsi riwayat percakapan secara pribadi. 💚
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 pt-4 relative z-10">
+          <button onClick={openLogin} className="btn-primary py-3 rounded-xl font-bold text-sm w-full shadow-lg">
+            Masuk ke Akun
+          </button>
+          <button onClick={openRegister} className="btn-ghost border border-[var(--border)] py-3 rounded-xl font-semibold text-sm w-full transition-colors">
+            Daftar Akun Baru
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-80px)] -mt-4 -mx-4 md:-mt-8 md:-mx-8 overflow-hidden animate-fade-in relative">
