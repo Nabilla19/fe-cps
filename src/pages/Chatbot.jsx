@@ -24,6 +24,7 @@ export default function Chatbot() {
   // State UI Tambahan
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null); // untuk dropdown opsi di tiap sesi
+  const [mode, setMode] = useState('chat'); // 'chat' atau 'assessment'
 
   // 1. Memuat daftar sesi saat halaman dimuat atau token berubah
   const fetchSessions = () => {
@@ -87,6 +88,7 @@ export default function Chatbot() {
   // Handler beralih sesi
   const handleSwitchSession = (sessionId) => {
     setCurrentSessionId(sessionId);
+    setMode('chat');
     if (window.innerWidth < 768) setIsSidebarOpen(false); // Tutup sidebar di HP saat pindah sesi
     // Reset state fitur
     setCurrentState({
@@ -190,7 +192,47 @@ export default function Chatbot() {
     setActiveMenuId(null);
   };
 
-  const handleSend = async (e, override = null) => {
+  const handleStartAssessment = () => {
+    setMode('assessment');
+    // Reset state fitur, pertahankan age & gender dari profile jika ada
+    setCurrentState(prev => ({
+      age: prev.age,
+      gender: prev.gender,
+      academic_year: null,
+      study_hours_per_day: null,
+      exam_pressure: null,
+      academic_performance: null,
+      stress_level: null,
+      anxiety_score: null,
+      depression_score: null,
+      sleep_hours: null,
+      physical_activity: null,
+      social_support: null,
+      screen_time: null,
+      internet_usage: null,
+      financial_stress: null,
+      family_expectation: null,
+      sleep_category: null,
+      screen_time_category: null,
+      stress_category: null,
+      mental_risk_score: null,
+      support_category: null
+    }));
+    
+    // Kirim pesan pemicu asesmen terpandu
+    handleSend(null, "Saya ingin memulai sesi asesmen kesehatan mental saya secara detail.", 'assessment');
+  };
+
+  const handleCancelAssessment = () => {
+    setMode('chat');
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      sender: 'ai',
+      text: "Sesi asesmen dibatalkan. Kita kembali mengobrol santai ya. Ada hal lain yang ingin kamu ceritakan? 💙"
+    }]);
+  };
+
+  const handleSend = async (e, override = null, overrideMode = null) => {
     if (e) e.preventDefault();
     const text = override ?? input;
     if (!text.trim()) return;
@@ -224,10 +266,11 @@ export default function Chatbot() {
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      const activeMode = overrideMode ?? mode;
       const res = await fetch('http://localhost:5000/api/chat/agent', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ message: text, currentState, session_id: targetSessionId })
+        body: JSON.stringify({ message: text, currentState, session_id: targetSessionId, mode: activeMode })
       });
       const data = await res.json();
       
@@ -350,6 +393,18 @@ export default function Chatbot() {
     })
     .finally(() => setIsLoading(false));
   };
+
+  const FEATURE_KEYS = [
+    'age', 'gender', 'academic_year', 'study_hours_per_day', 'exam_pressure',
+    'academic_performance', 'stress_level', 'anxiety_score', 'depression_score',
+    'sleep_hours', 'physical_activity', 'social_support', 'screen_time',
+    'internet_usage', 'financial_stress', 'family_expectation'
+  ];
+  
+  const filledFeatures = Object.keys(currentState)
+    .filter(k => FEATURE_KEYS.includes(k) && currentState[k] !== null).length;
+  const totalFeatures = FEATURE_KEYS.length;
+  const progressPercent = Math.min(100, Math.round((filledFeatures / totalFeatures) * 100));
 
   const pinnedSessions = sessions.filter(s => s.is_pinned);
   const recentSessions = sessions.filter(s => !s.is_pinned);
@@ -613,15 +668,47 @@ export default function Chatbot() {
           )}
         </div>
 
+        {/* Progress Asesmen Terpandu */}
+        {mode === 'assessment' && (
+          <div className="px-4 py-2.5 transition-all duration-300 border-t border-[var(--border)]" style={{ background: 'var(--bg-surface)' }}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold flex items-center gap-1.5 text-brand-400">
+                <Sparkles className="w-3.5 h-3.5 animate-pulse text-[#16a0a0]" /> Sesi Asesmen Terpandu (AI Guide)
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#16a0a0]">{progressPercent}% Terkumpul ({filledFeatures}/{totalFeatures})</span>
+                <button onClick={handleCancelAssessment} className="text-[10px] text-red-400 hover:text-red-500 font-semibold px-2 py-0.5 rounded border border-red-500/20 hover:bg-red-500/10 transition-colors">
+                  Batal Asesmen
+                </button>
+              </div>
+            </div>
+            <div className="w-full bg-[rgba(22,160,160,0.1)] h-2 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500"
+                   style={{ width: `${progressPercent}%`, background: 'linear-gradient(90deg, #16a0a0, #0e6363)' }} />
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              💡 AI sedang menganalisis perasaanmu secara kualitatif. Jawablah sesuai kondisi aslimu tanpa memikirkan angka ya.
+            </p>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-4 border-t border-[var(--border)]" style={{ background: 'var(--bg-surface)' }}>
           {messages.length > 2 && (
-            <div className="flex justify-end mb-3">
-               <button onClick={() => forcePredict(currentState)} disabled={isLoading}
-                  className="text-xs px-4 py-1.5 rounded-full font-medium transition-colors"
-                  style={{ background: 'var(--bg-brand)', color: '#fff', boxShadow: '0 2px 8px rgba(22,160,160,0.3)' }}>
-                  🪄 Selesaikan & Analisis
-               </button>
+            <div className="flex justify-end gap-2 mb-3">
+               {mode === 'chat' ? (
+                 <button onClick={handleStartAssessment} disabled={isLoading}
+                    className="text-xs px-4 py-1.5 rounded-full font-medium transition-colors border border-[var(--border)] hover:bg-[rgba(22,160,160,0.1)]"
+                    style={{ color: 'var(--t-brand)', background: 'var(--bg-surface)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                    🪄 Mulai Asesmen Kesehatan Mental
+                 </button>
+               ) : (
+                 <button onClick={() => { setMode('chat'); forcePredict(currentState); }} disabled={isLoading}
+                    className="text-xs px-4 py-1.5 rounded-full font-medium transition-colors text-white"
+                    style={{ background: progressPercent >= 100 ? 'linear-gradient(135deg, #16a0a0, #0e6363)' : 'var(--bg-brand)', boxShadow: '0 2px 8px rgba(22,160,160,0.3)' }}>
+                    {progressPercent >= 100 ? "🪄 Lihat Hasil Analisis Lengkap" : "🪄 Selesaikan & Analisis Sekarang (Gunakan Estimasi)"}
+                 </button>
+               )}
             </div>
           )}
 
