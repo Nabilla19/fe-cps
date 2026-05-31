@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Send, Bot, User, Loader2, Sparkles, Plus, Trash2, Menu, X, Pin, PinOff, Edit2, MoreVertical } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 

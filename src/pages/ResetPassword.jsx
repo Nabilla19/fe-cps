@@ -11,7 +11,7 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -45,7 +45,7 @@ export default function ResetPassword() {
         body: JSON.stringify({ token, password })
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setSuccess(true);
         setMessage(data.message);
