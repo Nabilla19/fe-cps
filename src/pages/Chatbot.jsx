@@ -285,10 +285,6 @@ export default function Chatbot() {
       if (data.extractedFeatures && Object.keys(data.extractedFeatures).length > 0) {
         setCurrentState(prev => {
           const newState = { ...prev, ...data.extractedFeatures };
-          const missing = Object.keys(newState).filter(k => newState[k] === null);
-          if (missing.length === 0) {
-            forcePredict(newState);
-          }
           return newState;
         });
       }
@@ -396,10 +392,11 @@ export default function Chatbot() {
   };
 
   const FEATURE_KEYS = [
-    'age', 'gender', 'academic_year', 'study_hours_per_day', 'exam_pressure',
-    'academic_performance', 'stress_level', 'anxiety_score', 'depression_score',
-    'sleep_hours', 'physical_activity', 'social_support', 'screen_time',
-    'internet_usage', 'financial_stress', 'family_expectation'
+    'age', 'gender',
+    'academic_year', 'study_hours_per_day', 'exam_pressure', 'academic_performance',
+    'stress_level', 'anxiety_score', 'depression_score', 'sleep_hours',
+    'physical_activity', 'social_support', 'screen_time', 'internet_usage',
+    'financial_stress', 'family_expectation'
   ];
 
   const filledFeatures = Object.keys(currentState)
